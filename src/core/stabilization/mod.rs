@@ -226,7 +226,17 @@ impl Stabilization {
     pub fn get_kernel_flags(&self, frame: usize, buffers: &Buffers) -> KernelParamsFlags {
         let mut kernel_flags = self.kernel_flags.clone();
         kernel_flags.set(KernelParamsFlags::HAS_DIGITAL_LENS, self.compute_params.digital_lens.is_some());
-        kernel_flags.set(KernelParamsFlags::HORIZONTAL_RS, self.compute_params.frame_readout_direction.is_horizontal());
+        let effective_horizontal_rs = if self.compute_params.auto_adjust_readout_for_frame_rotation {
+            let fr = ((self.compute_params.frame_rotation % 360.0) + 360.0) % 360.0;
+            if (fr - 90.0).abs() < 0.01 || (fr - 270.0).abs() < 0.01 {
+                !self.compute_params.frame_readout_direction.is_horizontal()
+            } else {
+                self.compute_params.frame_readout_direction.is_horizontal()
+            }
+        } else {
+            self.compute_params.frame_readout_direction.is_horizontal()
+        };
+        kernel_flags.set(KernelParamsFlags::HORIZONTAL_RS, effective_horizontal_rs);
         kernel_flags.set(KernelParamsFlags::HAS_SOURCE_RECT, buffers.input.rect.is_some() || self.size.0 != buffers.input.size.0 || self.size.1 != buffers.input.size.1);
         kernel_flags.set(KernelParamsFlags::HAS_OUTPUT_RECT, buffers.output.rect.is_some() || self.output_size.0 != buffers.output.size.0 || self.output_size.1 != buffers.output.size.1);
         kernel_flags.set(KernelParamsFlags::FRAMEBUFFER_INVERTED, self.compute_params.framebuffer_inverted);

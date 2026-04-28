@@ -378,8 +378,9 @@ impl StabilizationManager {
         if width > 0 && height > 0 {
             let params = self.params.upgradable_read();
 
-            let r = (params.video_rotation as f64).abs();
-            let (ow, oh) = if r == 90.0 || r == 270.0 {
+            let net_rotation = ((params.video_rotation - params.frame_rotation) % 360.0 + 360.0) % 360.0;
+            let r = if net_rotation > 180.0 { 360.0 - net_rotation } else { net_rotation };
+            let (ow, oh) = if (r - 90.0).abs() < 0.01 || (r - 270.0).abs() < 0.01 {
                 (params.size.1, params.size.0)
             } else {
                 params.size
@@ -936,6 +937,8 @@ impl StabilizationManager {
     }
 
     pub fn set_video_rotation(&self, v: f64) { self.params.write().video_rotation = v; self.invalidate_smoothing(); }
+    pub fn set_frame_rotation(&self, v: f64) { self.params.write().frame_rotation = v; self.invalidate_smoothing(); }
+    pub fn set_auto_adjust_readout_for_frame_rotation(&self, v: bool) { self.params.write().auto_adjust_readout_for_frame_rotation = v; }
 
     pub fn trim_ranges(&self) -> Vec<(f64, f64)> { self.params.read().trim_ranges.clone() }
     pub fn set_trim_ranges(&self, v: Vec<(f64, f64)>) {
@@ -1297,6 +1300,7 @@ impl StabilizationManager {
                 "width":       params.size.0,
                 "height":      params.size.1,
                 "rotation":    params.video_rotation,
+                "frame_rotation": params.frame_rotation,
                 "num_frames":  params.frame_count,
                 "fps":         params.fps,
                 "duration_ms": params.duration_ms,
@@ -1489,8 +1493,9 @@ impl StabilizationManager {
                     }
                 }
                 output_size = Some(params.size);
-                if let Some(v) = vid_info.get("rotation")   .and_then(|x| x.as_f64()) { params.video_rotation = v; }
-                if let Some(v) = vid_info.get("num_frames") .and_then(|x| x.as_u64()) { params.frame_count    = v as usize; }
+                if let Some(v) = vid_info.get("rotation")       .and_then(|x| x.as_f64()) { params.video_rotation = v; }
+                if let Some(v) = vid_info.get("frame_rotation").and_then(|x| x.as_f64()) { params.frame_rotation = v; }
+                if let Some(v) = vid_info.get("num_frames")    .and_then(|x| x.as_u64()) { params.frame_count    = v as usize; }
                 if let Some(v) = vid_info.get("fps")        .and_then(|x| x.as_f64()) { params.fps            = v; }
                 if let Some(v) = vid_info.get("duration_ms").and_then(|x| x.as_f64()) { params.duration_ms    = v; }
                 if let Some(v) = vid_info.get("fps_scale") { params.fps_scale = v.as_f64(); }
