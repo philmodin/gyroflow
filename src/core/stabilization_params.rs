@@ -99,7 +99,6 @@ pub struct StabilizationParams {
 
     pub video_rotation: f64,
     pub frame_rotation: f64,
-    pub auto_adjust_readout_for_frame_rotation: bool,
 
     pub lens_correction_amount: f64,
     pub light_refraction_coefficient: f64,
@@ -153,7 +152,6 @@ impl Default for StabilizationParams {
 
             video_rotation: 0.0,
             frame_rotation: 0.0,
-            auto_adjust_readout_for_frame_rotation: true,
 
             max_zoom: Some(130.0),
             max_zoom_iterations: 5,

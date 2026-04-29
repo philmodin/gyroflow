@@ -948,7 +948,6 @@ impl StabilizationManager {
 
     pub fn set_video_rotation(&self, v: f64) { self.params.write().video_rotation = v; self.invalidate_smoothing(); }
     pub fn set_frame_rotation(&self, v: f64) { self.params.write().frame_rotation = v; self.invalidate_smoothing(); }
-    pub fn set_auto_adjust_readout_for_frame_rotation(&self, v: bool) { self.params.write().auto_adjust_readout_for_frame_rotation = v; }
 
     pub fn trim_ranges(&self) -> Vec<(f64, f64)> { self.params.read().trim_ranges.clone() }
     pub fn set_trim_ranges(&self, v: Vec<(f64, f64)>) {
