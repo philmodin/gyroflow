@@ -378,12 +378,22 @@ impl StabilizationManager {
         if width > 0 && height > 0 {
             let params = self.params.upgradable_read();
 
-            let net_rotation = ((params.video_rotation - params.frame_rotation) % 360.0 + 360.0) % 360.0;
-            let r = if net_rotation > 180.0 { 360.0 - net_rotation } else { net_rotation };
-            let (ow, oh) = if (r - 90.0).abs() < 0.01 || (r - 270.0).abs() < 0.01 {
-                (params.size.1, params.size.0)
+            let (ow, oh) = if params.frame_rotation.abs() > 0.01 {
+                // NLE has pre-rotated the frame — use frame_rotation to determine effective content dims
+                let fr = ((params.frame_rotation % 360.0) + 360.0) % 360.0;
+                if (fr - 90.0).abs() < 0.01 || (fr - 270.0).abs() < 0.01 {
+                    (params.size.1, params.size.0) // Content is portrait (rotated from landscape source)
+                } else {
+                    params.size
+                }
             } else {
-                params.size
+                // Plugin handles rotation — use video_rotation to determine output orientation (original behavior)
+                let r = ((params.video_rotation % 360.0) + 360.0) % 360.0;
+                if (r - 90.0).abs() < 0.01 || (r - 270.0).abs() < 0.01 {
+                    (params.size.1, params.size.0)
+                } else {
+                    params.size
+                }
             };
 
             let wp = width as f64;
