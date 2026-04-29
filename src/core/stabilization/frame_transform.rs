@@ -236,11 +236,7 @@ impl FrameTransform {
         let smoothed_quat1 = gyro.smoothed_quat_at_timestamp(timestamp_ms);
 
         // Only compute 1 matrix if not using rolling shutter correction
-        // RS direction is based on the physical sensor readout, not the displayed frame orientation.
-        // The transform pipeline operates in landscape sensor coordinates (input_rotation in the
-        // shader handles the final rotation), so RS indexing stays in sensor space.
-        let horizontal_rs = params.frame_readout_direction.is_horizontal();
-        let rows = if frame_readout_time.abs() > 0.0 { if horizontal_rs { params.width } else { params.height } } else { 1 };
+        let rows = if frame_readout_time.abs() > 0.0 { if params.frame_readout_direction.is_horizontal() { params.width } else { params.height } } else { 1 };
 
         let matrices = (0..rows).into_par_iter().map(|y| {
             let quat_time = if frame_readout_time.abs() > 0.0 {
