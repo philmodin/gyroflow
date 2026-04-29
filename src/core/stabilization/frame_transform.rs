@@ -236,17 +236,11 @@ impl FrameTransform {
         let smoothed_quat1 = gyro.smoothed_quat_at_timestamp(timestamp_ms);
 
         // Only compute 1 matrix if not using rolling shutter correction
-        let effective_horizontal_rs = if params.auto_adjust_readout_for_frame_rotation {
-            let fr = ((params.frame_rotation % 360.0) + 360.0) % 360.0;
-            if (fr - 90.0).abs() < 0.01 || (fr - 270.0).abs() < 0.01 {
-                !params.frame_readout_direction.is_horizontal()
-            } else {
-                params.frame_readout_direction.is_horizontal()
-            }
-        } else {
-            params.frame_readout_direction.is_horizontal()
-        };
-        let rows = if frame_readout_time.abs() > 0.0 { if effective_horizontal_rs { params.width } else { params.height } } else { 1 };
+        // RS direction is based on the physical sensor readout, not the displayed frame orientation.
+        // The transform pipeline operates in landscape sensor coordinates (input_rotation in the
+        // shader handles the final rotation), so RS indexing stays in sensor space.
+        let horizontal_rs = params.frame_readout_direction.is_horizontal();
+        let rows = if frame_readout_time.abs() > 0.0 { if horizontal_rs { params.width } else { params.height } } else { 1 };
 
         let matrices = (0..rows).into_par_iter().map(|y| {
             let quat_time = if frame_readout_time.abs() > 0.0 {
