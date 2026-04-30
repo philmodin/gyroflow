@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Copyright © 2021-2022 Adrian <adrian.eddy at gmail>
 
-use std::collections::BTreeMap;
+use std::num::NonZeroUsize;
 use std::cell::RefCell;
 
 use crate::GyroflowCoreError;
@@ -165,9 +165,10 @@ impl BackendType {
     pub fn is_wgpu(&self) -> bool { matches!(self, Self::Wgpu(_)) }
 }
 
-#[derive(Default)]
+const STAB_DATA_CAPACITY: usize = 64;
+
 pub struct Stabilization {
-    pub stab_data: BTreeMap<i64, FrameTransform>,
+    pub stab_data: lru::LruCache<i64, FrameTransform>,
 
     pub size:        (usize, usize), // width, height
     pub output_size: (usize, usize), // width, height
@@ -190,6 +191,28 @@ pub struct Stabilization {
     pub share_wgpu_instances: bool,
     pub cache_frame_transform: bool,
     next_backend: Option<&'static str>
+}
+
+impl Default for Stabilization {
+    fn default() -> Self {
+        Self {
+            stab_data: lru::LruCache::new(NonZeroUsize::new(STAB_DATA_CAPACITY).unwrap()),
+            size: (0, 0),
+            output_size: (0, 0),
+            interpolation: Interpolation::default(),
+            kernel_flags: KernelParamsFlags::default(),
+            #[cfg(feature = "use-opencl")]
+            cl: None,
+            wgpu: None,
+            initialized_backend: BackendType::default(),
+            compute_params: ComputeParams::default(),
+            drawing: DrawCanvas::new(1920, 1080, 1920, 1080, 3),
+            pending_device_change: None,
+            share_wgpu_instances: false,
+            cache_frame_transform: false,
+            next_backend: None,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -327,7 +350,7 @@ impl Stabilization {
 
     pub fn ensure_stab_data_at_timestamp<T: PixelType>(&mut self, timestamp_us: i64, frame: Option<usize>, buffers: &mut Buffers, is_pixel_normalized: bool) {
         let mut insert = true;
-        if let Some(itm) = self.stab_data.get(&timestamp_us) {
+        if let Some(itm) = self.stab_data.peek(&timestamp_us) {
             insert = false;
             if itm.kernel_params.stride        != buffers.input.size.2 as i32 ||
                itm.kernel_params.output_stride != buffers.output.size.2 as i32 {
@@ -348,7 +371,7 @@ impl Stabilization {
                 transform.kernel_params.max_pixel_value = 1.0;
                 transform.kernel_params.pixel_value_limit = 1.0;
             }
-            self.stab_data.insert(timestamp_us, transform);
+            self.stab_data.put(timestamp_us, transform);
         }
     }
 
@@ -393,7 +416,7 @@ impl Stabilization {
     }
 
     pub fn get_undistortion_data(&self, timestamp_us: i64) -> Option<&FrameTransform> {
-        self.stab_data.get(&timestamp_us)
+        self.stab_data.peek(&timestamp_us)
     }
 
     pub fn list_devices(&self) -> Vec<String> {
@@ -620,7 +643,7 @@ impl Stabilization {
             if !self.cache_frame_transform {
                 _tmp_transform.as_ref()
             } else {
-                self.stab_data.get(&timestamp_us)
+                self.stab_data.peek(&timestamp_us)
             }
         );
 
