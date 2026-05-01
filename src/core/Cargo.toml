@@ -9,6 +9,10 @@ build = "build.rs"
 name = "gyroflow_core"
 path = "lib.rs"
 
+[[bin]]
+name = "gyroflow-bench"
+path = "bench.rs"
+
 [dependencies]
 #telemetry-parser = { path = "../../../telemetry-parser" }
 telemetry-parser = { git = "https://github.com/AdrianEddy/telemetry-parser.git", rev = "2f4218b" }
